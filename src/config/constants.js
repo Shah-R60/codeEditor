@@ -1,0 +1,25 @@
+const EXECUTION_TIMEOUT_MS = 3000;
+const MEMORY_LIMIT_BYTES = 134217728;
+const CPU_PERIOD = 100000;
+const CPU_QUOTA = 50000;
+const NETWORK_MODE = "none";
+const CAP_DROP = ["ALL"];
+const PIDS_LIMIT = 50;
+const SECURITY_OPT = ["no-new-privileges"];
+const WORKDIR = "/workspace";
+const JSON_BODY_LIMIT = "50kb";
+const MAX_CODE_SIZE_BYTES = 50 * 1024;
+
+module.exports = {
+  EXECUTION_TIMEOUT_MS,
+  MEMORY_LIMIT_BYTES,
+  CPU_PERIOD,
+  CPU_QUOTA,
+  NETWORK_MODE,
+  CAP_DROP,
+  PIDS_LIMIT,
+  SECURITY_OPT,
+  WORKDIR,
+  JSON_BODY_LIMIT,
+  MAX_CODE_SIZE_BYTES
+};
