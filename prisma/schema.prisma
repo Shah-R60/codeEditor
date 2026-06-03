@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. The Coding Problems
+model Question {
+  id          String     @id @default(uuid())
+  title       String
+  description String
+  difficulty  String     // "EASY", "MEDIUM", "HARD"
+  testCases   TestCase[]
+  sessions    Session[]
+}
+
+// 2. The Test Cases for the Judge
+model TestCase {
+  id             String   @id @default(uuid())
+  questionId     String
+  input          String
+  expectedOutput String
+  isHidden       Boolean  @default(false) // If true, frontend doesn't see input
+  question       Question @relation(fields: [questionId], references: [id])
+}
+
+// 3. The Interview / OA Rooms
+model Session {
+  id         String   @id @default(uuid()) // This becomes your Room URL
+  type       String   // "OA" or "INTERVIEW"
+  questionId String
+  status     String   @default("PENDING") // PENDING, ONGOING, COMPLETED
+  question   Question @relation(fields: [questionId], references: [id])
+  createdAt  DateTime @default(now())
+}

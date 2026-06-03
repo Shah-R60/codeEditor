@@ -1,5 +1,6 @@
 const express = require("express");
 const executeRoute = require("./routes/execute");
+const dbRoutes = require("./routes/database");
 const { JSON_BODY_LIMIT } = require("./config/constants");
 
 const app = express();
@@ -17,6 +18,7 @@ app.use((req, res, next) => {
 });
 
 app.use("/execute", executeRoute);
+app.use("/db", dbRoutes);
 
 app.use((err, req, res, next) => {
   if (err && err.type === "entity.too.large") {
