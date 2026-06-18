@@ -1,4 +1,8 @@
 const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const WebSocket = require("ws");
+const yUtils = require("y-websocket/bin/utils");
 const executeRoute = require("./routes/execute");
 const dbRoutes = require("./routes/database");
 const { JSON_BODY_LIMIT } = require("./config/constants");
@@ -47,7 +51,45 @@ app.use((req, res, next) => {
   });
 });
 
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+  }
+});
+
+io.on("connection", (socket) => {
+  socket.on("join-room", (roomId) => {
+    socket.join(roomId);
+  });
+
+  socket.on("execution-started", (roomId) => {
+    socket.to(roomId).emit("execution-started");
+  });
+
+  socket.on("execution-result", (payload) => {
+    const { roomId, result } = payload;
+    socket.to(roomId).emit("execution-result", result);
+  });
+});
+
+const wss = new WebSocket.Server({ noServer: true });
+wss.on("connection", yUtils.setupWSConnection);
+
+server.on("upgrade", (request, socket, head) => {
+  if (request.url.startsWith("/yjs")) {
+    // URL format /yjs/[roomId]
+    const docName = request.url.split("/").pop();
+    request.url = `/${docName}`; // yUtils expects the doc name in the URL
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit("connection", ws, request);
+    });
+  }
+});
+
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Code execution engine listening on port ${port}`);
 });
