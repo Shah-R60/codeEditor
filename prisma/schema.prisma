@@ -12,6 +12,10 @@ model Question {
   title       String
   description String
   difficulty  String     // "EASY", "MEDIUM", "HARD"
+  
+  // NEW FIELD: Stores a JSON object of starting code for each language
+  boilerplate Json?      
+
   testCases   TestCase[]
   sessions    Session[]
 }

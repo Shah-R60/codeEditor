@@ -15,7 +15,7 @@ const prisma = new PrismaClient({ adapter });
 // POST /db/questions - Creates a question with its test cases
 router.post('/questions', async (req, res) => {
   try {
-    const { title, description, difficulty, testCases } = req.body;
+    const { title, description, difficulty, boilerplate, testCases } = req.body;
 
     if (!title || !description || !difficulty || !Array.isArray(testCases)) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
@@ -26,6 +26,7 @@ router.post('/questions', async (req, res) => {
         title,
         description,
         difficulty,
+        boilerplate: boilerplate || null,
         testCases: {
           create: testCases.map(tc => ({
             input: tc.input,

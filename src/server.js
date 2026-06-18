@@ -36,8 +36,7 @@ app.use((err, req, res, next) => {
 });
 
 app.use((req, res, next) => {
-  console.log("api",req.path, "error", err);
-  console.log("api",res.statusCode, "error", err);
+  console.log("api not found:", req.path);
   res.status(404).json({
     success: false,
     stdout: "",
