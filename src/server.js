@@ -5,6 +5,7 @@ const WebSocket = require("ws");
 const yUtils = require("y-websocket/bin/utils");
 const executeRoute = require("./routes/execute");
 const dbRoutes = require("./routes/database");
+const streamRoutes = require("./routes/stream");
 const { JSON_BODY_LIMIT } = require("./config/constants");
 
 const app = express();
@@ -23,6 +24,7 @@ app.use((req, res, next) => {
 
 app.use("/execute", executeRoute);
 app.use("/db", dbRoutes);
+app.use("/stream", streamRoutes);
 
 app.use((err, req, res, next) => {
   if (err && err.type === "entity.too.large") {

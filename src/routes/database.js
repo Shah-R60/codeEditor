@@ -1,15 +1,18 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
-const { Pool } = require('pg');
+const { PrismaNeon } = require('@prisma/adapter-neon');
+const { Pool, neonConfig } = require('@neondatabase/serverless');
+const ws = require('ws');
+
+neonConfig.webSocketConstructor = ws; // Uses WebSocket on port 443 which bypasses firewalls
 
 // Load environment variables
 require('dotenv').config();
+console.log("DATABASE_URL IS:", process.env.DATABASE_URL);
 
 const router = express.Router();
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 // POST /db/questions - Creates a question with its test cases

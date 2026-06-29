@@ -9,8 +9,11 @@
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@stream-io/node-sdk": "^0.7.61",
     "dockerode": "^4.0.0",
     "express": "^4.19.2",
     "pg": "^8.21.0",
