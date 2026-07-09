@@ -7,6 +7,7 @@ const executeRoute = require("./routes/execute");
 const dbRoutes = require("./routes/database");
 const streamRoutes = require("./routes/stream");
 const userRoutes = require("./routes/users");
+const jobRoutes = require("./routes/jobs");
 const { JSON_BODY_LIMIT } = require("./config/constants");
 
 const app = express();
@@ -16,7 +17,7 @@ app.use(express.json({ limit: JSON_BODY_LIMIT }));
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-user-id");
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -26,6 +27,7 @@ app.use((req, res, next) => {
 app.use("/execute", executeRoute);
 app.use("/db", dbRoutes);
 app.use("/db/users", userRoutes);
+app.use("/db/jobs", jobRoutes);
 app.use("/stream", streamRoutes);
 
 app.use((err, req, res, next) => {
