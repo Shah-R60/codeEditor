@@ -14,8 +14,8 @@ const languages = {
   cpp: {
     image: "gcc:latest",
     fileName: "main.cpp",
-    compileCmd: `g++ ${WORKDIR}/main.cpp -o ${WORKDIR}/out`,
-    runCmd: `${WORKDIR}/out`
+    compileCmd: `g++ ${WORKDIR}/main.cpp -o /tmp/out`,
+    runCmd: `/tmp/out`
   }
 };
 

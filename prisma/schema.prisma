@@ -6,15 +6,34 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  STUDENT
+  RECRUITER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questionsCreated Question[]
+  sessions         Session[]
+}
+
 // 1. The Coding Problems
 model Question {
   id          String     @id @default(uuid())
   title       String
   description String
   difficulty  String     // "EASY", "MEDIUM", "HARD"
-  
-  // NEW FIELD: Stores a JSON object of starting code for each language
   boilerplate Json?      
+
+  creatorId   String?
+  creator     User?      @relation(fields: [creatorId], references: [id])
 
   testCases   TestCase[]
   sessions    Session[]
@@ -26,16 +45,20 @@ model TestCase {
   questionId     String
   input          String
   expectedOutput String
-  isHidden       Boolean  @default(false) // If true, frontend doesn't see input
-  question       Question @relation(fields: [questionId], references: [id])
+  isHidden       Boolean  @default(false)
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
 // 3. The Interview / OA Rooms
 model Session {
-  id         String   @id @default(uuid()) // This becomes your Room URL
+  id         String   @id @default(uuid())
   type       String   // "OA" or "INTERVIEW"
   questionId String
   status     String   @default("PENDING") // PENDING, ONGOING, COMPLETED
-  question   Question @relation(fields: [questionId], references: [id])
   createdAt  DateTime @default(now())
+
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+
+  question   Question @relation(fields: [questionId], references: [id])
 }
