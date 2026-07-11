@@ -22,7 +22,7 @@ model User {
 
   questionsCreated Question[]
   sessions         Session[]
-  jobs             Job[]
+  hiringDrives     HiringDrive[]
 }
 
 // 1. The Coding Problems
@@ -64,8 +64,8 @@ model Session {
   question   Question @relation(fields: [questionId], references: [id])
 }
 
-// 4. Hiring Plans (Jobs)
-model Job {
+// 4. Hiring Drives (formerly Jobs)
+model HiringDrive {
   id          String   @id @default(uuid())
   title       String
   department  String?
@@ -76,36 +76,45 @@ model Job {
   recruiterId String
   recruiter   User     @relation(fields: [recruiterId], references: [id])
 
-  stages      Stage[]
+  rounds      Round[]
   candidates  Candidate[]
 }
 
-// 5. Hiring Pipeline Stages
-model Stage {
+// 5. Hiring Pipeline Rounds (formerly Stages)
+model Round {
   id          String   @id @default(uuid())
-  jobId       String
+  hiringDriveId String
   name        String
-  type        String   // "Automated" or "Live Coding"
-  duration    String
+  type        String   // "Online Assessment", "Technical Interview", etc.
+  duration    String?
   description String?
   order       Int      @default(0)
+  
+  // Scheduling
+  startDate   DateTime?
+  endDate     DateTime?
+  timeZone    String?
+  deadline    DateTime?
+  
+  // Advanced Configuration
+  config      Json?
 
-  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  hiringDrive HiringDrive @relation(fields: [hiringDriveId], references: [id], onDelete: Cascade)
 }
 
 // 6. Candidates
 model Candidate {
-  id          String   @id @default(uuid())
-  jobId       String
-  name        String
-  email       String
-  stage       String   @default("Applied")
-  status      String   @default("In Review") // In Review, Passed, Rejected
-  score       String?
-  timeTaken   String?
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  hiringDriveId String
+  name          String
+  email         String
+  stage         String   @default("Applied")
+  status        String   @default("In Review") // In Review, Passed, Rejected
+  score         String?
+  timeTaken     String?
+  createdAt     DateTime @default(now())
 
-  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  hiringDrive   HiringDrive @relation(fields: [hiringDriveId], references: [id], onDelete: Cascade)
 }
 
 // 7. Demo Questions for Practice Sandbox

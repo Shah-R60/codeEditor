@@ -70,4 +70,35 @@ router.post('/google-login', async (req, res) => {
   }
 });
 
+// GET /db/users/:id/assessments - Fetch active assessments for a student
+router.get('/:id/assessments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const email = user.email.toLowerCase().trim();
+
+    // Find candidates associated with this email
+    const candidates = await prisma.candidate.findMany({
+      where: { email },
+      include: {
+        hiringDrive: {
+          include: {
+            rounds: { orderBy: { order: 'asc' } }
+          }
+        }
+      }
+    });
+
+    res.status(200).json({ success: true, data: candidates });
+  } catch (error) {
+    console.error('Error fetching assessments:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

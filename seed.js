@@ -3,7 +3,7 @@ const lastNames = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "
 
 async function seed() {
   const jobId = "b56ace51-5557-4833-9936-74cfb9c1c772";
-  const url = `http://localhost:3001/db/jobs/${jobId}/candidates`;
+  const url = `http://localhost:3001/db/drives/${jobId}/candidates`;
 
   console.log(`Seeding 20 candidates for job ${jobId}...`);
 
