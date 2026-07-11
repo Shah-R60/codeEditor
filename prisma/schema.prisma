@@ -107,3 +107,22 @@ model Candidate {
 
   job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
+
+// 7. Demo Questions for Practice Sandbox
+model DemoQuestion {
+  id          String         @id @default(uuid())
+  title       String
+  description String
+  difficulty  String         // "EASY", "MEDIUM", "HARD"
+  boilerplate Json?      
+  testCases   DemoTestCase[]
+}
+
+model DemoTestCase {
+  id               String       @id @default(uuid())
+  demoQuestionId   String
+  input            String
+  expectedOutput   String
+  isHidden         Boolean      @default(false)
+  demoQuestion     DemoQuestion @relation(fields: [demoQuestionId], references: [id], onDelete: Cascade)
+}

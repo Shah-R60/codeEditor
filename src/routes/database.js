@@ -76,6 +76,32 @@ router.get('/questions/random', async (req, res) => {
   }
 });
 
+// GET /db/questions/demo/random - Fetches a random demo question with test cases
+router.get('/questions/demo/random', async (req, res) => {
+  try {
+    const count = await prisma.demoQuestion.count();
+    
+    if (count === 0) {
+      return res.status(404).json({ success: false, error: 'No demo questions found' });
+    }
+
+    const skip = Math.floor(Math.random() * count);
+
+    const questions = await prisma.demoQuestion.findMany({
+      take: 1,
+      skip: skip,
+      include: {
+        testCases: true
+      }
+    });
+
+    res.status(200).json({ success: true, data: questions[0] });
+  } catch (error) {
+    console.error('Error fetching random demo question:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // POST /db/sessions - Creates a new session
 router.post('/sessions', async (req, res) => {
   try {
