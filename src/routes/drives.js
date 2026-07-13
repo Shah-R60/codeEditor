@@ -223,6 +223,11 @@ router.get('/:id/public', async (req, res) => {
         title: true,
         department: true,
         status: true,
+        rounds: {
+          orderBy: { order: 'asc' },
+          take: 1,
+          select: { deadline: true }
+        }
       }
     });
 
@@ -232,6 +237,10 @@ router.get('/:id/public', async (req, res) => {
 
     if (drive.status !== 'Active') {
       return res.status(400).json({ success: false, error: 'This hiring drive is not currently accepting applications.' });
+    }
+
+    if (drive.rounds[0]?.deadline && new Date() > new Date(drive.rounds[0].deadline)) {
+      return res.status(400).json({ success: false, error: 'The registration deadline for this drive has passed.' });
     }
 
     res.status(200).json({ success: true, data: drive });
@@ -263,6 +272,19 @@ router.post('/:id/apply', async (req, res) => {
     if (!drive) return res.status(404).json({ success: false, error: 'Drive not found' });
     if (drive.status !== 'Active') return res.status(400).json({ success: false, error: 'This hiring drive is closed.' });
 
+    // Ensure the user actually has a registered account
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+    if (!existingUser) {
+      return res.status(400).json({ success: false, error: 'You must have a registered student account to apply. Please login or register first.' });
+    }
+
+    const firstRound = drive.rounds[0];
+    if (firstRound?.deadline && new Date() > new Date(firstRound.deadline)) {
+      return res.status(400).json({ success: false, error: 'The registration deadline for this drive has passed.' });
+    }
+
     // Ensure they haven't already applied
     const existingCandidate = await prisma.candidate.findFirst({
       where: { hiringDriveId: id, email }
@@ -271,7 +293,6 @@ router.post('/:id/apply', async (req, res) => {
       return res.status(400).json({ success: false, error: 'You have already applied for this role.' });
     }
 
-    const firstRound = drive.rounds[0];
     const initialStage = firstRound ? firstRound.name : 'Applied';
 
     const candidate = await prisma.candidate.create({
