@@ -170,6 +170,49 @@ router.get('/dashboard/stats', async (req, res) => {
   }
 });
 
+// PUT /db/drives/:jobId/rounds/:roundId - Update a specific round
+router.put('/:jobId/rounds/:roundId', async (req, res) => {
+  try {
+    const recruiterId = await getRecruiterId(req);
+    const { jobId, roundId } = req.params;
+    const { config, startDate, endDate, duration, timeZone, deadline, name, type } = req.body;
+
+    // Verify the drive belongs to the recruiter
+    const drive = await prisma.hiringDrive.findFirst({
+      where: {
+        id: jobId,
+        recruiterId: recruiterId
+      }
+    });
+
+    if (!drive) {
+      return res.status(404).json({ success: false, error: 'Hiring drive not found or unauthorized' });
+    }
+
+    const dataPayload = {};
+    if (name !== undefined) dataPayload.name = name;
+    if (type !== undefined) dataPayload.type = type;
+    if (config !== undefined) dataPayload.config = config;
+    if (startDate !== undefined) dataPayload.startDate = startDate ? new Date(startDate) : null;
+    if (endDate !== undefined) dataPayload.endDate = endDate ? new Date(endDate) : null;
+    if (duration !== undefined) dataPayload.duration = duration;
+    if (timeZone !== undefined) dataPayload.timeZone = timeZone;
+    if (deadline !== undefined) dataPayload.deadline = deadline ? new Date(deadline) : null;
+
+    const updatedRound = await prisma.round.update({
+      where: {
+        id: roundId
+      },
+      data: dataPayload
+    });
+
+    res.status(200).json({ success: true, data: updatedRound });
+  } catch (error) {
+    console.error('Error updating round:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // GET /db/drives/:id/public - Fetch basic drive details for public application page
 router.get('/:id/public', async (req, res) => {
   try {

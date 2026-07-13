@@ -18,7 +18,7 @@ const prisma = new PrismaClient({ adapter });
 // POST /db/questions - Creates a question with its test cases
 router.post('/questions', async (req, res) => {
   try {
-    const { title, description, difficulty, boilerplate, testCases } = req.body;
+    const { title, description, difficulty, type, marks, tags, boilerplate, testCases } = req.body;
 
     if (!title || !description || !difficulty || !Array.isArray(testCases)) {
       return res.status(400).json({ success: false, error: 'Invalid payload' });
@@ -29,7 +29,12 @@ router.post('/questions', async (req, res) => {
         title,
         description,
         difficulty,
-        boilerplate: boilerplate || null,
+        boilerplate: {
+          ...(boilerplate || {}),
+          type: type || "Coding",
+          marks: marks || 10,
+          tags: tags || []
+        },
         testCases: {
           create: testCases.map(tc => ({
             input: tc.input,
@@ -46,6 +51,24 @@ router.post('/questions', async (req, res) => {
     res.status(201).json({ success: true, data: question });
   } catch (error) {
     console.error('Error creating question:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// GET /db/questions - Fetches all questions
+router.get('/questions', async (req, res) => {
+  try {
+    const questions = await prisma.question.findMany({
+      include: {
+        testCases: true
+      },
+      orderBy: {
+        title: 'asc'
+      }
+    });
+    res.status(200).json({ success: true, data: questions });
+  } catch (error) {
+    console.error('Error fetching questions:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
