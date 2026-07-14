@@ -155,18 +155,42 @@ router.get('/:id/profile', async (req, res) => {
 router.post('/:id/assessments/:candidateId/submit', async (req, res) => {
   try {
     const { id, candidateId } = req.params;
-    const { score, timeTaken } = req.body;
+    const { score, timeTaken, submissions, stageId } = req.body;
 
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
+    const currentCandidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
+    if (!currentCandidate) {
+      return res.status(404).json({ success: false, error: 'Candidate not found' });
+    }
+
+    let stageData = {};
+    if (currentCandidate.stageData) {
+      try {
+        stageData = typeof currentCandidate.stageData === 'string' ? JSON.parse(currentCandidate.stageData) : currentCandidate.stageData;
+      } catch (e) {
+        stageData = {};
+      }
+    }
+
+    if (stageId) {
+      stageData[stageId] = {
+        score,
+        timeTaken,
+        submissions: submissions ? submissions : undefined,
+      };
+    }
+
     const candidate = await prisma.candidate.update({
       where: { id: candidateId },
       data: {
-        score,
+        score, // Keeping global for backward compatibility for now
         timeTaken,
+        submissions: submissions ? submissions : undefined,
+        stageData,
         status: "In Review"
       }
     });

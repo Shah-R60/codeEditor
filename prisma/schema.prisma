@@ -115,6 +115,8 @@ model Candidate {
   score         String?
   rank          Int?
   timeTaken     String?
+  submissions   Json?
+  stageData     Json?    @default("{}")
   createdAt     DateTime @default(now())
 
   hiringDrive   HiringDrive @relation(fields: [hiringDriveId], references: [id], onDelete: Cascade)

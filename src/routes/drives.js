@@ -394,5 +394,26 @@ router.post('/:id/candidates', async (req, res) => {
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
+// PUT /db/drives/:id/candidates/:candidateId - Update a candidate's status/stage
+router.put('/:id/candidates/:candidateId', async (req, res) => {
+  try {
+    const { candidateId } = req.params;
+    const { status, stage } = req.body;
+
+    const dataToUpdate = {};
+    if (status) dataToUpdate.status = status;
+    if (stage) dataToUpdate.stage = stage;
+
+    const candidate = await prisma.candidate.update({
+      where: { id: candidateId },
+      data: dataToUpdate
+    });
+
+    res.status(200).json({ success: true, data: candidate });
+  } catch (error) {
+    console.error('Error updating candidate:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
 
 module.exports = router;
