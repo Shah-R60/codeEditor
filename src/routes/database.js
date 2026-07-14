@@ -99,6 +99,75 @@ router.get('/questions/random', async (req, res) => {
   }
 });
 
+// GET /db/questions/:id - Fetches a single question
+router.get('/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const question = await prisma.question.findUnique({
+      where: { id },
+      include: {
+        testCases: true
+      }
+    });
+    
+    if (!question) {
+      return res.status(404).json({ success: false, error: 'Question not found' });
+    }
+    
+    res.status(200).json({ success: true, data: question });
+  } catch (error) {
+    console.error('Error fetching question:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// PUT /db/questions/:id - Updates an existing question
+router.put('/questions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, difficulty, type, marks, tags, boilerplate, testCases } = req.body;
+
+    if (!title || !description || !difficulty || !Array.isArray(testCases)) {
+      return res.status(400).json({ success: false, error: 'Invalid payload' });
+    }
+
+    // Delete existing test cases
+    await prisma.testCase.deleteMany({
+      where: { questionId: id }
+    });
+
+    const question = await prisma.question.update({
+      where: { id },
+      data: {
+        title,
+        description,
+        difficulty,
+        boilerplate: {
+          ...(boilerplate || {}),
+          type: type || "Coding",
+          marks: marks || 10,
+          tags: tags || []
+        },
+        testCases: {
+          create: testCases.map(tc => ({
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+            isHidden: tc.isHidden || false
+          }))
+        }
+      },
+      include: {
+        testCases: true
+      }
+    });
+
+    res.status(200).json({ success: true, data: question });
+  } catch (error) {
+    console.error('Error updating question:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // GET /db/questions/demo/random - Fetches a random demo question with test cases
 router.get('/questions/demo/random', async (req, res) => {
   try {

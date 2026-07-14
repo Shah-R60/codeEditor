@@ -101,4 +101,81 @@ router.get('/:id/assessments', async (req, res) => {
   }
 });
 
+// GET /db/users/:id/profile - Fetch user profile and assessment history
+router.get('/:id/profile', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const user = await prisma.user.findUnique({ 
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const email = user.email.toLowerCase().trim();
+
+    // Find candidates associated with this email
+    const candidates = await prisma.candidate.findMany({
+      where: { email },
+      include: {
+        hiringDrive: {
+          select: {
+            title: true,
+            status: true,
+            department: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      data: {
+        user,
+        assessments: candidates
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// POST /db/users/:id/assessments/:candidateId/submit - Submit an assessment
+router.post('/:id/assessments/:candidateId/submit', async (req, res) => {
+  try {
+    const { id, candidateId } = req.params;
+    const { score, timeTaken } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    const candidate = await prisma.candidate.update({
+      where: { id: candidateId },
+      data: {
+        score,
+        timeTaken,
+        status: "In Review"
+      }
+    });
+
+    res.status(200).json({ success: true, data: candidate });
+  } catch (error) {
+    console.error('Error submitting assessment:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
