@@ -3,6 +3,13 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaNeon } = require('@prisma/adapter-neon');
 const { neonConfig } = require('@neondatabase/serverless');
 const ws = require('ws');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { parseResumeFile } = require('../utils/resumeParser');
+const cloudinary = require('cloudinary').v2;
+
+// Cloudinary config will automatically pick up CLOUDINARY_URL from process.env
 
 neonConfig.webSocketConstructor = ws;
 
@@ -11,6 +18,8 @@ require('dotenv').config();
 const router = express.Router();
 const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
+
+const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
 
 // Middleware to mock a recruiter auth if not provided
 const getRecruiterId = async (req) => {
@@ -312,6 +321,111 @@ router.post('/:id/apply', async (req, res) => {
   }
 });
 
+// POST /db/drives/:id/apply-with-resume - Submit application with resume parsing
+router.post('/:id/apply-with-resume', upload.single('resume'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { name, email, phone } = req.body;
+
+    if (!name || !email) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, error: 'Name and email are required.' });
+    }
+    
+    email = email.toLowerCase().trim();
+
+    const drive = await prisma.hiringDrive.findUnique({
+      where: { id },
+      include: {
+        rounds: { orderBy: { order: 'asc' } }
+      }
+    });
+
+    if (!drive) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ success: false, error: 'Drive not found' });
+    }
+    if (drive.status !== 'Active') {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, error: 'This hiring drive is closed.' });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+    if (!existingUser) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, error: 'You must have a registered student account to apply. Please login or register first.' });
+    }
+
+    const firstRound = drive.rounds[0];
+    if (firstRound?.deadline && new Date() > new Date(firstRound.deadline)) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, error: 'The registration deadline for this drive has passed.' });
+    }
+
+    const existingCandidate = await prisma.candidate.findFirst({
+      where: { hiringDriveId: id, email }
+    });
+    if (existingCandidate) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, error: 'You have already applied for this role.' });
+    }
+
+    let resumeData = null;
+    let resumeFile = null;
+
+    if (req.file) {
+      let cloudUploadSuccess = false;
+      try {
+        // Upload to Cloudinary
+        const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+          resource_type: "image", // Using 'image' allows Cloudinary to serve the PDF correctly in browsers
+          format: "pdf"
+        });
+        resumeFile = uploadResult.secure_url;
+        cloudUploadSuccess = true;
+      } catch (uploadError) {
+        console.error("Cloudinary upload error:", uploadError);
+        resumeFile = req.file.filename; // fallback to local if cloud fails
+      }
+
+      try {
+        resumeData = await parseResumeFile(req.file.path);
+      } catch (parseError) {
+        console.error("Resume parsing error:", parseError);
+        // We still let them apply even if AI parsing fails
+      }
+      
+      // Cleanup the temporary local file ONLY if it was safely uploaded to the cloud
+      if (cloudUploadSuccess && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    }
+
+    const initialStage = firstRound ? firstRound.name : 'Applied';
+
+    const candidate = await prisma.candidate.create({
+      data: {
+        hiringDriveId: id,
+        name,
+        email,
+        stage: initialStage,
+        status: 'In Review',
+        resumeFile,
+        resumeData
+      }
+    });
+
+    res.status(201).json({ success: true, data: { candidateId: candidate.id, parsed: !!resumeData } });
+  } catch (error) {
+    console.error('Error submitting application with resume:', error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+
 // GET /db/drives/:id - Fetch drive details
 router.get('/:id', async (req, res) => {
   try {
@@ -391,6 +505,25 @@ router.post('/:id/candidates', async (req, res) => {
     res.status(201).json({ success: true, data: candidate });
   } catch (error) {
     console.error('Error adding candidate:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// GET /db/drives/:id/candidates/:candidateId - Fetch a single candidate
+router.get('/:id/candidates/:candidateId', async (req, res) => {
+  try {
+    const { candidateId } = req.params;
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId }
+    });
+    
+    if (!candidate) {
+      return res.status(404).json({ success: false, error: 'Candidate not found' });
+    }
+    
+    res.status(200).json({ success: true, data: candidate });
+  } catch (error) {
+    console.error('Error fetching candidate:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

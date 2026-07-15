@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 const WebSocket = require("ws");
@@ -25,6 +26,11 @@ app.use((req, res, next) => {
 });
 
 app.use("/execute", executeRoute);
+app.use(express.urlencoded({ extended: true }));
+
+// Serve local uploads statically for older resumes
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 app.use("/db", dbRoutes);
 app.use("/db/users", userRoutes);
 app.use("/db/drives", driveRoutes);
