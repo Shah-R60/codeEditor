@@ -142,3 +142,16 @@ model DemoTestCase {
   isHidden         Boolean      @default(false)
   demoQuestion     DemoQuestion @relation(fields: [demoQuestionId], references: [id], onDelete: Cascade)
 }
+
+// 8. Notifications
+model Notification {
+  id             String   @id @default(uuid())
+  recipientEmail String
+  role           String   // "STUDENT", "RECRUITER"
+  type           String
+  title          String
+  message        String
+  actionLink     String?
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}

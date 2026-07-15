@@ -417,6 +417,26 @@ router.post('/:id/apply-with-resume', upload.single('resume'), async (req, res) 
       }
     });
 
+    // --- NOTIFICATION FOR RECRUITER ---
+    const driveWithRecruiter = await prisma.hiringDrive.findUnique({
+      where: { id },
+      include: { recruiter: true }
+    });
+    
+    if (driveWithRecruiter && driveWithRecruiter.recruiter) {
+      await prisma.notification.create({
+        data: {
+          recipientEmail: driveWithRecruiter.recruiter.email,
+          role: 'RECRUITER',
+          type: 'APPLICATION_SUBMITTED',
+          title: 'New Candidate Application',
+          message: `${name} has applied for ${driveWithRecruiter.title}.`,
+          actionLink: `/recruiter/drives/${driveWithRecruiter.id}/candidates/${candidate.id}`
+        }
+      });
+    }
+    // ------------------------------------
+
     res.status(201).json({ success: true, data: { candidateId: candidate.id, parsed: !!resumeData } });
   } catch (error) {
     console.error('Error submitting application with resume:', error);
@@ -539,8 +559,26 @@ router.put('/:id/candidates/:candidateId', async (req, res) => {
 
     const candidate = await prisma.candidate.update({
       where: { id: candidateId },
-      data: dataToUpdate
+      data: dataToUpdate,
+      include: { hiringDrive: true }
     });
+
+    // --- NOTIFICATION FOR STUDENT ---
+    if (stage || status) {
+      const title = stage ? 'Interview Stage Updated' : 'Application Status Updated';
+      const detail = stage ? `moved to ${stage}` : `status changed to ${status}`;
+      await prisma.notification.create({
+        data: {
+          recipientEmail: candidate.email,
+          role: 'STUDENT',
+          type: 'STATUS_UPDATE',
+          title: title,
+          message: `Your application for ${candidate.hiringDrive.title} was ${detail}.`,
+          actionLink: `/student`
+        }
+      });
+    }
+    // --------------------------------
 
     res.status(200).json({ success: true, data: candidate });
   } catch (error) {
