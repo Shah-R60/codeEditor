@@ -79,6 +79,11 @@ io.on("connection", (socket) => {
     const { roomId, result } = payload;
     socket.to(roomId).emit("execution-result", result);
   });
+
+  socket.on("push-question", (payload) => {
+    const { roomId, question } = payload;
+    socket.to(roomId).emit("active-question-changed", question);
+  });
 });
 
 const wss = new WebSocket.Server({ noServer: true });

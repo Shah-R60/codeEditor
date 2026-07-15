@@ -68,8 +68,38 @@ router.get('/questions', async (req, res) => {
     });
     res.status(200).json({ success: true, data: questions });
   } catch (error) {
-    console.error('Error fetching questions:', error);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    console.error("Error fetching questions:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch questions" });
+  }
+});
+
+// GET /db/rounds/:roundId/questions - Fetches questions assigned to a specific round
+router.get('/rounds/:roundId/questions', async (req, res) => {
+  try {
+    const { roundId } = req.params;
+    const round = await prisma.round.findUnique({ where: { id: roundId } });
+    if (!round) {
+      return res.status(404).json({ success: false, error: 'Round not found' });
+    }
+    
+    let questionIds = [];
+    if (round.config && Array.isArray(round.config.questions)) {
+      questionIds = round.config.questions;
+    }
+    
+    const questions = await prisma.question.findMany({
+      where: {
+        id: { in: questionIds }
+      },
+      include: {
+        testCases: true
+      }
+    });
+
+    res.json({ success: true, data: questions });
+  } catch (error) {
+    console.error("Error fetching round questions:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch round questions" });
   }
 });
 
