@@ -6,6 +6,14 @@ const { neonConfig } = require('@neondatabase/serverless');
 const ws = require('ws');
 const { app } = require('../config/firebase');
 const { getAuth } = require('firebase-admin/auth');
+const redisClient = require('../config/redis');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { parseResumeFile } = require('../utils/resumeParser');
+
+const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
 
 neonConfig.webSocketConstructor = ws;
 const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
@@ -59,6 +67,13 @@ router.post('/google-login', async (req, res) => {
     // Generate our own JWT for subsequent API requests
     const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
 
+    // Store session in Redis with 24 hours expiration (86400 seconds)
+    try {
+      await redisClient.setEx(`auth:${token}`, 86400, user.id);
+    } catch (redisErr) {
+      console.error('Failed to store session in Redis:', redisErr);
+    }
+
     res.status(200).json({
       success: true,
       token,
@@ -101,6 +116,67 @@ router.get('/:id/assessments', async (req, res) => {
   }
 });
 
+// POST /db/users/:id/resume - Upload and parse resume
+router.post('/:id/resume', upload.single('resume'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    let resumeFile = null;
+    let cloudUploadSuccess = false;
+
+    try {
+      // Upload to Cloudinary
+      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+        resource_type: "image", // Using 'image' allows Cloudinary to serve the PDF correctly in browsers
+        format: "pdf"
+      });
+      resumeFile = uploadResult.secure_url;
+      cloudUploadSuccess = true;
+    } catch (uploadError) {
+      console.error("Cloudinary upload error:", uploadError);
+      resumeFile = req.file.filename; // fallback to local if cloud fails
+    }
+
+    let parsedData = null;
+    try {
+      // Parse the resume
+      parsedData = await parseResumeFile(req.file.path);
+    } catch (parseError) {
+      console.error("Resume parsing error:", parseError);
+    }
+
+    // Cleanup the temporary local file ONLY if it was safely uploaded to the cloud
+    if (cloudUploadSuccess && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    // Save parsed data and file URL into the database
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { 
+        resumeData: parsedData || user.resumeData,
+        resumeFile: resumeFile 
+      }
+    });
+
+    res.status(200).json({ success: true, data: parsedData || user.resumeData, resumeFile });
+  } catch (error) {
+    console.error('Error parsing resume:', error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ success: false, error: 'Internal server error or failed to parse resume' });
+  }
+});
+
 // GET /db/users/:id/profile - Fetch user profile and assessment history
 router.get('/:id/profile', async (req, res) => {
   try {
@@ -113,7 +189,9 @@ router.get('/:id/profile', async (req, res) => {
         name: true,
         email: true,
         role: true,
-        createdAt: true
+        createdAt: true,
+        resumeData: true,
+        resumeFile: true
       }
     });
     
@@ -155,10 +233,13 @@ router.get('/:id/profile', async (req, res) => {
 router.post('/:id/assessments/:candidateId/submit', async (req, res) => {
   try {
     const { id, candidateId } = req.params;
-    const { score, timeTaken, submissions, stageId } = req.body;
+    const { score, timeTaken, submissions, stageId, isFinal = true } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
+    let user = null;
+    if (id !== "null") {
+      user = await prisma.user.findUnique({ where: { id } });
+    }
+    if (!user && id !== "null") {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
@@ -191,13 +272,29 @@ router.post('/:id/assessments/:candidateId/submit', async (req, res) => {
         timeTaken,
         submissions: submissions ? submissions : undefined,
         stageData,
-        status: "In Review"
+        ...(isFinal ? { status: "In Review" } : {})
       }
     });
 
     res.status(200).json({ success: true, data: candidate });
   } catch (error) {
     console.error('Error submitting assessment:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+
+// POST /db/users/logout
+router.post('/logout', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      await redisClient.del(`auth:${token}`);
+    }
+    res.status(200).json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

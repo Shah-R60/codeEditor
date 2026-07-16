@@ -8,7 +8,9 @@ const path = require('path');
 const fs = require('fs');
 const { parseResumeFile } = require('../utils/resumeParser');
 const cloudinary = require('cloudinary').v2;
-
+const { apiLimiter } = require('../middleware/rateLimiter');
+const { requireAuth } = require('../middleware/auth');
+const { cache } = require('../middleware/cache');
 // Cloudinary config will automatically pick up CLOUDINARY_URL from process.env
 
 neonConfig.webSocketConstructor = ws;
@@ -23,6 +25,9 @@ const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
 
 // Middleware to mock a recruiter auth if not provided
 const getRecruiterId = async (req) => {
+  if (req.user && req.user.id) {
+    return req.user.id;
+  }
   let userId = req.headers['x-user-id'];
   if (!userId) {
     let recruiter = await prisma.user.findFirst({ where: { role: 'RECRUITER' } });
@@ -42,7 +47,7 @@ const getRecruiterId = async (req) => {
 };
 
 // GET /db/drives - Fetch all hiring drives for a recruiter
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, apiLimiter, cache(60), async (req, res) => {
   try {
     const recruiterId = await getRecruiterId(req);
     
@@ -78,7 +83,7 @@ router.get('/', async (req, res) => {
 });
 
 // POST /db/drives - Create a new drive
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, apiLimiter, async (req, res) => {
   try {
     const recruiterId = await getRecruiterId(req);
     const { title, department, rounds } = req.body;
@@ -118,7 +123,7 @@ router.post('/', async (req, res) => {
 });
 
 // GET /db/drives/dashboard/stats - Fetch aggregated stats for the dashboard
-router.get('/dashboard/stats', async (req, res) => {
+router.get('/dashboard/stats', requireAuth, apiLimiter, cache(60), async (req, res) => {
   try {
     const recruiterId = await getRecruiterId(req);
     
@@ -231,11 +236,11 @@ router.get('/:id/public', async (req, res) => {
       select: {
         title: true,
         department: true,
+        location: true,
         status: true,
         rounds: {
           orderBy: { order: 'asc' },
-          take: 1,
-          select: { deadline: true }
+          select: { id: true, name: true, type: true, deadline: true }
         }
       }
     });
