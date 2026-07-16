@@ -10,6 +10,7 @@ const streamRoutes = require("./routes/stream");
 const userRoutes = require("./routes/users");
 const driveRoutes = require("./routes/drives");
 const notificationRoutes = require("./routes/notifications");
+const searchRoutes = require("./routes/search");
 const { JSON_BODY_LIMIT } = require("./config/constants");
 
 const app = express();
@@ -36,6 +37,7 @@ app.use("/db", dbRoutes);
 app.use("/db/users", userRoutes);
 app.use("/db/drives", driveRoutes);
 app.use("/db/notifications", notificationRoutes);
+app.use("/db/search", searchRoutes);
 app.use("/stream", streamRoutes);
 
 app.use((err, req, res, next) => {
