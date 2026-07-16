@@ -54,7 +54,10 @@ router.get('/', requireAuth, apiLimiter, cache(60), async (req, res) => {
     const drives = await prisma.hiringDrive.findMany({
       where: { recruiterId },
       include: {
-        candidates: true
+        candidates: true,
+        rounds: {
+          orderBy: { order: 'asc' }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -71,7 +74,9 @@ router.get('/', requireAuth, apiLimiter, cache(60), async (req, res) => {
         candidates: candidatesCount,
         passRate: passRate,
         date: drive.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        department: drive.department || "Engineering"
+        createdAt: drive.createdAt,
+        department: drive.department || "Engineering",
+        rounds: drive.rounds || []
       };
     });
 
