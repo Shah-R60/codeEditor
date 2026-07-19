@@ -121,6 +121,8 @@ model Candidate {
   stageData     Json?    @default("{}")
   resumeFile    String?
   resumeData    Json?
+  github        String?
+  linkedin      String?
   createdAt     DateTime @default(now())
 
   hiringDrive   HiringDrive @relation(fields: [hiringDriveId], references: [id], onDelete: Cascade)

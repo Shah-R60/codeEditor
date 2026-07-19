@@ -12,6 +12,7 @@ const path = require('path');
 const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 const { parseResumeFile } = require('../utils/resumeParser');
+const emailService = require('../utils/emailService');
 
 const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
 
@@ -62,6 +63,13 @@ router.post('/google-login', async (req, res) => {
           role: role === 'RECRUITER' ? 'RECRUITER' : 'STUDENT'
         }
       });
+      
+      // Send Welcome Email
+      if (user.role === 'RECRUITER') {
+        emailService.sendRecruiterWelcomeEmail(user.email, user.name);
+      } else {
+        emailService.sendCandidateWelcomeEmail(user.email, user.name);
+      }
     }
 
     // Generate our own JWT for subsequent API requests
@@ -243,7 +251,10 @@ router.post('/:id/assessments/:candidateId/submit', async (req, res) => {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    const currentCandidate = await prisma.candidate.findUnique({ where: { id: candidateId } });
+    const currentCandidate = await prisma.candidate.findUnique({ 
+      where: { id: candidateId },
+      include: { hiringDrive: true }
+    });
     if (!currentCandidate) {
       return res.status(404).json({ success: false, error: 'Candidate not found' });
     }
@@ -275,6 +286,11 @@ router.post('/:id/assessments/:candidateId/submit', async (req, res) => {
         ...(isFinal ? { status: "In Review" } : {})
       }
     });
+
+    // Send Round Result Email to candidate
+    if (score) {
+      emailService.sendRoundResultEmail(currentCandidate.email, currentCandidate.name, currentCandidate.hiringDrive?.title || 'Hiring Drive', score);
+    }
 
     res.status(200).json({ success: true, data: candidate });
   } catch (error) {

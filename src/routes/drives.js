@@ -7,6 +7,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { parseResumeFile } = require('../utils/resumeParser');
+const emailService = require('../utils/emailService');
 const cloudinary = require('cloudinary').v2;
 const { apiLimiter } = require('../middleware/rateLimiter');
 const { requireAuth } = require('../middleware/auth');
@@ -335,7 +336,7 @@ router.post('/:id/apply', async (req, res) => {
 router.post('/:id/apply-with-resume', upload.single('resume'), async (req, res) => {
   try {
     const { id } = req.params;
-    let { name, email, phone } = req.body;
+    let { name, email, phone, github, linkedin } = req.body;
 
     if (!name || !email) {
       if (req.file) fs.unlinkSync(req.file.path);
@@ -423,7 +424,9 @@ router.post('/:id/apply-with-resume', upload.single('resume'), async (req, res) 
         stage: initialStage,
         status: 'In Review',
         resumeFile,
-        resumeData
+        resumeData,
+        github,
+        linkedin
       }
     });
 
@@ -573,22 +576,41 @@ router.put('/:id/candidates/:candidateId', async (req, res) => {
       include: { hiringDrive: true }
     });
 
-    // --- NOTIFICATION FOR STUDENT ---
-    if (stage || status) {
-      const title = stage ? 'Interview Stage Updated' : 'Application Status Updated';
-      const detail = stage ? `moved to ${stage}` : `status changed to ${status}`;
-      await prisma.notification.create({
-        data: {
-          recipientEmail: candidate.email,
-          role: 'STUDENT',
-          type: 'STATUS_UPDATE',
-          title: title,
-          message: `Your application for ${candidate.hiringDrive.title} was ${detail}.`,
-          actionLink: `/student`
+      // --- NOTIFICATION FOR STUDENT ---
+      if (stage || status) {
+        const title = stage ? 'Interview Stage Updated' : 'Application Status Updated';
+        const detail = stage ? `moved to ${stage}` : `status changed to ${status}`;
+        
+        await prisma.notification.create({
+          data: {
+            recipientEmail: candidate.email,
+            role: 'STUDENT',
+            type: 'STATUS_UPDATE',
+            title: title,
+            message: `Your application for ${candidate.hiringDrive.title} was ${detail}.`,
+            actionLink: `/student`
+          }
+        });
+
+        // Trigger Emails based on status/stage change
+        if (stage) {
+          emailService.sendStageUpdateEmail(candidate.email, candidate.name, candidate.hiringDrive.title, stage);
         }
-      });
-    }
-    // --------------------------------
+
+        if (status) {
+          const lowerStatus = status.toLowerCase();
+          if (lowerStatus === 'shortlisted' || lowerStatus === 'passed') {
+            emailService.sendShortlistEmail(candidate.email, candidate.name, candidate.hiringDrive.title);
+          } else if (lowerStatus === 'selected' || lowerStatus === 'hired') {
+            emailService.sendSelectedEmail(candidate.email, candidate.name, candidate.hiringDrive.title);
+          } else if (lowerStatus === 'rejected') {
+            emailService.sendRejectEmail(candidate.email, candidate.name, candidate.hiringDrive.title);
+          } else if (lowerStatus === 'waitlisted') {
+            emailService.sendWaitlistEmail(candidate.email, candidate.name, candidate.hiringDrive.title);
+          }
+        }
+      }
+      // --------------------------------
 
     res.status(200).json({ success: true, data: candidate });
   } catch (error) {
