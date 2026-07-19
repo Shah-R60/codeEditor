@@ -11,6 +11,7 @@ const userRoutes = require("./routes/users");
 const driveRoutes = require("./routes/drives");
 const notificationRoutes = require("./routes/notifications");
 const searchRoutes = require("./routes/search");
+const aiRoutes = require("./routes/ai");
 const { JSON_BODY_LIMIT } = require("./config/constants");
 
 const app = express();
@@ -39,6 +40,7 @@ app.use("/db/drives", driveRoutes);
 app.use("/db/notifications", notificationRoutes);
 app.use("/db/search", searchRoutes);
 app.use("/livekit", livekitRoutes);
+app.use("/ai", aiRoutes);
 
 app.use((err, req, res, next) => {
   if (err && err.type === "entity.too.large") {
