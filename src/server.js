@@ -6,7 +6,7 @@ const WebSocket = require("ws");
 const yUtils = require("y-websocket/bin/utils");
 const executeRoute = require("./routes/execute");
 const dbRoutes = require("./routes/database");
-const streamRoutes = require("./routes/stream");
+const livekitRoutes = require("./routes/livekit");
 const userRoutes = require("./routes/users");
 const driveRoutes = require("./routes/drives");
 const notificationRoutes = require("./routes/notifications");
@@ -38,7 +38,7 @@ app.use("/db/users", userRoutes);
 app.use("/db/drives", driveRoutes);
 app.use("/db/notifications", notificationRoutes);
 app.use("/db/search", searchRoutes);
-app.use("/stream", streamRoutes);
+app.use("/livekit", livekitRoutes);
 
 app.use((err, req, res, next) => {
   if (err && err.type === "entity.too.large") {
